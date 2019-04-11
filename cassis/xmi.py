@@ -39,7 +39,7 @@ def load_cas_from_xmi(source: Union[IO, str], typesystem: TypeSystem = TypeSyste
 
 
 class CasXmiDeserializer:
-    def deserialize(self, source: Union[IO, str], typesystem: TypeSystem):
+    def deserialize(self, source: Union[IO, str], typesystem: TypeSystem, ignore_missing_target_id=True):
         # namespaces
         NS_XMI = "{http://www.omg.org/XMI}"
         NS_CAS = "{http:///uima/cas.ecore}"
@@ -154,13 +154,20 @@ class CasXmiDeserializer:
                     targets = []
                     for ref in value.split():
                         target_id = int(ref)
-                        target = feature_structures[target_id]
-                        targets.append(target)
+                        if target_id in feature_structures:
+                            target = feature_structures[target_id]
+                            targets.append(target)
+                        elif not ignore_missing_target_id:
+                            raise ValueError('target_id=%s does not exist in feature_structures' % target_id)
                     setattr(fs, feature_name, targets)
                 else:
                     target_id = int(value)
-                    target = feature_structures[target_id]
-                    setattr(fs, feature_name, target)
+
+                    if target_id in feature_structures:
+                        target = feature_structures[target_id]
+                        setattr(fs, feature_name, target)
+                    elif not ignore_missing_target_id:
+                        raise ValueError('target_id=%s does not exist in feature_structures' % target_id)
 
         cas = Cas(typesystem)
         for sofa in sofas:
@@ -175,9 +182,11 @@ class CasXmiDeserializer:
             view.sofa_mime = sofa.mimeType
 
             for member_id in proto_view.members:
-                annotation = feature_structures[member_id]
-
-                view.add_annotation(annotation)
+               if member_id in feature_structures:
+                   annotation = feature_structures[member_id]
+                   view.add_annotation(annotation)
+               elif not ignore_missing_target_id:
+                   raise ValueError('target_id=%s does not exist in feature_structures' % target_id)
 
         return cas
 
